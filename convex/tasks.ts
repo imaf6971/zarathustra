@@ -65,3 +65,30 @@ export const listByStatus = query({
   },
 });
 
+export const updateStatus = mutation({
+  args: {
+    taskId: v.id("tasks"),
+    status: v.union(v.literal("backlog"), v.literal("in-progress"), v.literal("done")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new ConvexError("Unauthorized");
+    }
+
+    const task = await ctx.db.get(args.taskId);
+    if (!task) {
+      throw new ConvexError("Task not found");
+    }
+
+    if (task.userId !== userId) {
+      throw new ConvexError("Unauthorized");
+    }
+
+    await ctx.db.patch(args.taskId, {
+      status: args.status,
+    });
+
+    return args.taskId;
+  },
+});
