@@ -41,6 +41,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { useSelectedContext } from "@/components/context-provider";
 
 type TaskStatus = "backlog" | "in-progress" | "done";
 
@@ -179,25 +180,15 @@ export function Kanban() {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
+  const { selectedContextId } = useSelectedContext();
   const createTask = useMutation(api.tasks.create);
-  const updateTaskStatus = useMutation(
-    api.tasks.updateStatus
-  ).withOptimisticUpdate((localStore, args) => {
-    // Optimistically update the task status in the query result
-    // Query with no args uses empty object {}
-    const currentTasks = localStore.getQuery(api.tasks.list, {});
-
-    if (currentTasks !== undefined) {
-      // Create an updated array with the task status changed
-      const updatedTasks = currentTasks.map((task) =>
-        task._id === args.taskId ? { ...task, status: args.status } : task
-      );
-
-      // Update the query result optimistically
-      localStore.setQuery(api.tasks.list, {}, updatedTasks);
-    }
-  });
-  const tasks = useQuery(api.tasks.list);
+  const updateTaskStatus = useMutation(api.tasks.updateStatus);
+  const tasks = useQuery(
+    api.tasks.list,
+    selectedContextId ? { contextId: selectedContextId } : "skip"
+  );
+  const contexts = useQuery(api.contexts.list);
+  const selectedContext = contexts?.find((c) => c._id === selectedContextId);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -252,12 +243,17 @@ export function Kanban() {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!selectedContextId) {
+      console.error("No context selected");
+      return;
+    }
     try {
       await createTask({
         title,
         description: description || undefined,
         status: "backlog",
         completionDate: completionDate ? completionDate.getTime() : undefined,
+        contextId: selectedContextId,
       });
       setTitle("");
       setDescription("");
@@ -269,9 +265,30 @@ export function Kanban() {
     }
   };
 
+  if (!selectedContextId) {
+    return (
+      <AppLayout
+        breadcrumbs={[{ label: "Work", href: "#" }, { label: "Kanban" }]}
+      >
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <h2 className="text-2xl font-semibold mb-2">No Context Selected</h2>
+            <p className="text-muted-foreground">
+              Please select a context from the sidebar to view tasks.
+            </p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  const breadcrumbs = selectedContext
+    ? [{ label: selectedContext.name, href: "#" }, { label: "Kanban" }]
+    : [{ label: "Work", href: "#" }, { label: "Kanban" }];
+
   return (
     <AppLayout
-      breadcrumbs={[{ label: "Work", href: "#" }, { label: "Kanban" }]}
+      breadcrumbs={breadcrumbs}
       headerActions={
         <Dialog
           open={isDialogOpen}

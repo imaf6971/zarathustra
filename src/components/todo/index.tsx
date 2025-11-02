@@ -1,13 +1,19 @@
 import { AppLayout } from "@/components/app-layout";
+import { useSelectedContext } from "@/components/context-provider";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 
 export function Todo() {
+  const { selectedContextId } = useSelectedContext();
+  const contexts = useQuery(api.contexts.list);
+  const selectedContext = contexts?.find((c) => c._id === selectedContextId);
+
+  const breadcrumbs = selectedContext
+    ? [{ label: selectedContext.name, href: "#" }, { label: "Todo" }]
+    : [{ label: "Work", href: "#" }, { label: "Todo" }];
+
   return (
-    <AppLayout
-      breadcrumbs={[
-        { label: "Work", href: "#" },
-        { label: "Todo" },
-      ]}
-    >
+    <AppLayout breadcrumbs={breadcrumbs}>
       <div className="flex flex-col gap-4">
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold">Todo</h1>
@@ -24,4 +30,3 @@ export function Todo() {
     </AppLayout>
   );
 }
-

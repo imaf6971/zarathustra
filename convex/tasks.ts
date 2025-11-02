@@ -9,10 +9,20 @@ export const create = mutation({
     description: v.optional(v.string()),
     status: v.optional(v.union(v.literal("backlog"), v.literal("in-progress"), v.literal("done"))),
     completionDate: v.optional(v.number()),
+    contextId: v.id("contexts"),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) {
+      throw new ConvexError("Unauthorized");
+    }
+
+    // Verify context belongs to user
+    const context = await ctx.db.get(args.contextId);
+    if (!context) {
+      throw new ConvexError("Context not found");
+    }
+    if (context.userId !== userId) {
       throw new ConvexError("Unauthorized");
     }
 
@@ -21,6 +31,7 @@ export const create = mutation({
       description: args.description,
       status: args.status ?? "backlog",
       userId,
+      contextId: args.contextId,
       createdAt: Date.now(),
       completionDate: args.completionDate,
     });
@@ -30,12 +41,36 @@ export const create = mutation({
 });
 
 export const list = query({
-  handler: async (ctx) => {
+  args: {
+    contextId: v.optional(v.id("contexts")),
+  },
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) {
       throw new ConvexError("Unauthorized");
     }
 
+    if (args.contextId) {
+      // Verify context belongs to user
+      const context = await ctx.db.get(args.contextId);
+      if (!context) {
+        throw new ConvexError("Context not found");
+      }
+      if (context.userId !== userId) {
+        throw new ConvexError("Unauthorized");
+      }
+
+      const tasks = await ctx.db
+        .query("tasks")
+        .withIndex("by_user_context", (q) =>
+          q.eq("userId", userId).eq("contextId", args.contextId!)
+        )
+        .collect();
+
+      return tasks;
+    }
+
+    // If no contextId provided, return all tasks for user
     const tasks = await ctx.db
       .query("tasks")
       .withIndex("by_user", (q) => q.eq("userId", userId))

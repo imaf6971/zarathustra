@@ -1,13 +1,19 @@
 import { AppLayout } from "@/components/app-layout";
+import { useSelectedContext } from "@/components/context-provider";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 
 export function Calendar() {
+  const { selectedContextId } = useSelectedContext();
+  const contexts = useQuery(api.contexts.list);
+  const selectedContext = contexts?.find((c) => c._id === selectedContextId);
+
+  const breadcrumbs = selectedContext
+    ? [{ label: selectedContext.name, href: "#" }, { label: "Calendar" }]
+    : [{ label: "Work", href: "#" }, { label: "Calendar" }];
+
   return (
-    <AppLayout
-      breadcrumbs={[
-        { label: "Work", href: "#" },
-        { label: "Calendar" },
-      ]}
-    >
+    <AppLayout breadcrumbs={breadcrumbs}>
       <div className="flex flex-col gap-4">
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold">Calendar</h1>
@@ -24,4 +30,3 @@ export function Calendar() {
     </AppLayout>
   );
 }
-

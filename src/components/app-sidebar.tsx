@@ -2,16 +2,10 @@
 
 import * as React from "react";
 import {
-  AudioWaveform,
   BookOpen,
   Bot,
   CalendarDays,
-  Command,
-  Frame,
-  GalleryVerticalEnd,
   ListTodo,
-  Map,
-  PieChart,
   Settings2,
   SquareKanban,
   SquareTerminal,
@@ -37,20 +31,6 @@ const data = {
     email: "m@example.com",
     avatar: "/avatars/shadcn.jpg",
   },
-  contexts: [
-    {
-      name: "Work",
-      logo: GalleryVerticalEnd,
-    },
-    {
-      name: "Study",
-      logo: AudioWaveform,
-    },
-    {
-      name: "Personal",
-      logo: Command,
-    },
-  ],
   navMain: [
     {
       title: "Playground",
@@ -163,7 +143,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <ContextSwitcher contexts={data.contexts} />
+        <ContextSwitcher />
       </SidebarHeader>
       <SidebarContent>
         <NavPages pages={data.projects} />
