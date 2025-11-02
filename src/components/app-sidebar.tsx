@@ -146,12 +146,12 @@ const data = {
     },
     {
       name: "Todo",
-      url: "#",
+      url: "/todo",
       icon: ListTodo,
     },
     {
       name: "Calendar",
-      url: "#",
+      url: "/calendar",
       icon: CalendarDays,
     },
   ],
