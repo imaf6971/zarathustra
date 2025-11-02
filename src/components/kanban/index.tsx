@@ -185,7 +185,25 @@ export function Kanban() {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
   const createTask = useMutation(api.tasks.create);
-  const updateTaskStatus = useMutation(api.tasks.updateStatus);
+  const updateTaskStatus = useMutation(api.tasks.updateStatus).withOptimisticUpdate(
+    (localStore, args) => {
+      // Optimistically update the task status in the query result
+      // Query with no args uses empty object {}
+      const currentTasks = localStore.getQuery(api.tasks.list, {});
+      
+      if (currentTasks !== undefined) {
+        // Create an updated array with the task status changed
+        const updatedTasks = currentTasks.map((task) =>
+          task._id === args.taskId
+            ? { ...task, status: args.status }
+            : task
+        );
+        
+        // Update the query result optimistically
+        localStore.setQuery(api.tasks.list, {}, updatedTasks);
+      }
+    }
+  );
   const tasks = useQuery(api.tasks.list);
 
   const sensors = useSensors(
@@ -196,9 +214,10 @@ export function Kanban() {
     })
   );
 
-
-  const backlogTasks = tasks?.filter((task) => task.status === "backlog") ?? [];
-  const inProgressTasks = tasks?.filter((task) => task.status === "in-progress") ?? [];
+  const backlogTasks =
+    tasks?.filter((task) => task.status === "backlog") ?? [];
+  const inProgressTasks =
+    tasks?.filter((task) => task.status === "in-progress") ?? [];
   const doneTasks = tasks?.filter((task) => task.status === "done") ?? [];
 
   const handleDragStart = (event: DragStartEvent) => {
