@@ -38,6 +38,7 @@ export function Kanban() {
   const [completionDate, setCompletionDate] = useState<Date | undefined>(
     undefined
   );
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const createTask = useMutation(api.tasks.create);
   const tasks = useQuery(api.tasks.list);
 
@@ -58,6 +59,7 @@ export function Kanban() {
       setTitle("");
       setDescription("");
       setCompletionDate(undefined);
+      setIsPopoverOpen(false);
       setIsDialogOpen(false);
     } catch (error) {
       console.error("Error creating task:", error);
@@ -68,7 +70,15 @@ export function Kanban() {
     <AppLayout
       breadcrumbs={[{ label: "Work", href: "#" }, { label: "Kanban" }]}
       headerActions={
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setIsPopoverOpen(false);
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button>
               <PlusCircle className="size-4" />
@@ -109,7 +119,7 @@ export function Kanban() {
                   <Label htmlFor="completionDate">
                     Completion Date (Optional)
                   </Label>
-                  <Popover>
+                  <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                     <PopoverTrigger asChild>
                       <Button
                         id="completionDate"
@@ -137,7 +147,10 @@ export function Kanban() {
                       <Calendar
                         mode="single"
                         selected={completionDate}
-                        onSelect={setCompletionDate}
+                        onSelect={(date) => {
+                          setCompletionDate(date);
+                          setIsPopoverOpen(false);
+                        }}
                         initialFocus
                       />
                     </PopoverContent>
@@ -177,10 +190,9 @@ export function Kanban() {
                 className="cursor-pointer hover:shadow-md transition-shadow"
               >
                 <CardHeader>
-                  <CardTitle className="text-lg font-semibold">
+                  <CardTitle className="text-lg font-semibold font-mono">
                     {task.title}
                   </CardTitle>
-                  <CardTitle className="text-base">{task.title}</CardTitle>
                   {task.description && (
                     <CardDescription>{task.description}</CardDescription>
                   )}
@@ -214,7 +226,7 @@ export function Kanban() {
                 className="cursor-pointer hover:shadow-md transition-shadow"
               >
                 <CardHeader>
-                  <CardTitle className="text-base">{task.title}</CardTitle>
+                  <CardTitle className="text-base font-sans">{task.title}</CardTitle>
                   {task.description && (
                     <CardDescription>{task.description}</CardDescription>
                   )}
@@ -246,7 +258,7 @@ export function Kanban() {
                 className="cursor-pointer hover:shadow-md transition-shadow"
               >
                 <CardHeader>
-                  <CardTitle className="text-base">{task.title}</CardTitle>
+                  <CardTitle className="text-base font-sans">{task.title}</CardTitle>
                   {task.description && (
                     <CardDescription>{task.description}</CardDescription>
                   )}
