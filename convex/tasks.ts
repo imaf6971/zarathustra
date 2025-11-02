@@ -1,0 +1,67 @@
+import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { ConvexError } from "convex/values";
+
+export const create = mutation({
+  args: {
+    title: v.string(),
+    description: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("backlog"), v.literal("in-progress"), v.literal("done"))),
+    completionDate: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new ConvexError("Unauthorized");
+    }
+
+    const taskId = await ctx.db.insert("tasks", {
+      title: args.title,
+      description: args.description,
+      status: args.status ?? "backlog",
+      userId,
+      createdAt: Date.now(),
+      completionDate: args.completionDate,
+    });
+
+    return taskId;
+  },
+});
+
+export const list = query({
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new ConvexError("Unauthorized");
+    }
+
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    return tasks;
+  },
+});
+
+export const listByStatus = query({
+  args: {
+    status: v.union(v.literal("backlog"), v.literal("in-progress"), v.literal("done")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new ConvexError("Unauthorized");
+    }
+
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_status", (q) => q.eq("status", args.status))
+      .filter((q) => q.eq(q.field("userId"), userId))
+      .collect();
+
+    return tasks;
+  },
+});
+

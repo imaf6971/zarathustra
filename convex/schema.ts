@@ -1,9 +1,17 @@
-import { defineSchema } from "convex/server";
+import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
+import { v } from "convex/values";
 
 const schema = defineSchema({
   ...authTables,
-  // Your other tables...
+  tasks: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    status: v.union(v.literal("backlog"), v.literal("in-progress"), v.literal("done")),
+    userId: v.id("users"),
+    createdAt: v.number(),
+    completionDate: v.optional(v.number()),
+  }).index("by_user", ["userId"]).index("by_status", ["status"]),
 });
 
 export default schema;
