@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { PlusCircle, Calendar as CalendarIcon, GripVertical } from "lucide-react";
+import { PlusCircle, Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import {
   DndContext,
@@ -81,8 +81,8 @@ function KanbanColumn({ id, title, tasks, badgeColor }: KanbanColumnProps) {
               badgeColor.includes("chart-1")
                 ? "bg-chart-1/10 text-chart-1"
                 : badgeColor.includes("chart-3")
-                ? "bg-chart-3/10 text-chart-3"
-                : "bg-chart-4/10 text-chart-4"
+                  ? "bg-chart-3/10 text-chart-3"
+                  : "bg-chart-4/10 text-chart-4"
             )}
           >
             {tasks.length}
@@ -108,18 +108,13 @@ interface TaskCardProps {
 }
 
 function TaskCard({ task }: TaskCardProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    isDragging,
-  } = useDraggable({
-    id: task._id,
-    data: {
-      task,
-    },
-  });
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: task._id,
+      data: {
+        task,
+      },
+    });
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -128,6 +123,8 @@ function TaskCard({ task }: TaskCardProps) {
 
   return (
     <Card
+      {...attributes}
+      {...listeners}
       ref={setNodeRef}
       style={style}
       className={cn(
@@ -137,15 +134,8 @@ function TaskCard({ task }: TaskCardProps) {
     >
       <CardHeader>
         <div className="flex items-start gap-2">
-          <div
-            {...attributes}
-            {...listeners}
-            className="mt-1 cursor-grab active:cursor-grabbing"
-          >
-            <GripVertical className="size-4 text-muted-foreground" />
-          </div>
           <div className="flex-1">
-            <CardTitle className="text-base font-sans">{task.title}</CardTitle>
+            <CardTitle className="text-base font-mono">{task.title}</CardTitle>
             {task.description && (
               <CardDescription>{task.description}</CardDescription>
             )}
@@ -163,11 +153,16 @@ function TaskCard({ task }: TaskCardProps) {
 
 function DraggableTaskOverlay({ task }: { task: Task }) {
   return (
-    <Card className="rotate-3 shadow-2xl opacity-90">
+    <Card className="shadow-2xl opacity-90">
       <CardHeader>
-        <CardTitle className="text-base font-sans">{task.title}</CardTitle>
+        <CardTitle className="text-base font-mono">{task.title}</CardTitle>
         {task.description && (
           <CardDescription>{task.description}</CardDescription>
+        )}
+        {task.completionDate && (
+          <CardDescription className="text-xs mt-2">
+            Due: {format(new Date(task.completionDate), "PPP")}
+          </CardDescription>
         )}
       </CardHeader>
     </Card>
@@ -185,25 +180,23 @@ export function Kanban() {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
   const createTask = useMutation(api.tasks.create);
-  const updateTaskStatus = useMutation(api.tasks.updateStatus).withOptimisticUpdate(
-    (localStore, args) => {
-      // Optimistically update the task status in the query result
-      // Query with no args uses empty object {}
-      const currentTasks = localStore.getQuery(api.tasks.list, {});
-      
-      if (currentTasks !== undefined) {
-        // Create an updated array with the task status changed
-        const updatedTasks = currentTasks.map((task) =>
-          task._id === args.taskId
-            ? { ...task, status: args.status }
-            : task
-        );
-        
-        // Update the query result optimistically
-        localStore.setQuery(api.tasks.list, {}, updatedTasks);
-      }
+  const updateTaskStatus = useMutation(
+    api.tasks.updateStatus
+  ).withOptimisticUpdate((localStore, args) => {
+    // Optimistically update the task status in the query result
+    // Query with no args uses empty object {}
+    const currentTasks = localStore.getQuery(api.tasks.list, {});
+
+    if (currentTasks !== undefined) {
+      // Create an updated array with the task status changed
+      const updatedTasks = currentTasks.map((task) =>
+        task._id === args.taskId ? { ...task, status: args.status } : task
+      );
+
+      // Update the query result optimistically
+      localStore.setQuery(api.tasks.list, {}, updatedTasks);
     }
-  );
+  });
   const tasks = useQuery(api.tasks.list);
 
   const sensors = useSensors(
@@ -214,8 +207,7 @@ export function Kanban() {
     })
   );
 
-  const backlogTasks =
-    tasks?.filter((task) => task.status === "backlog") ?? [];
+  const backlogTasks = tasks?.filter((task) => task.status === "backlog") ?? [];
   const inProgressTasks =
     tasks?.filter((task) => task.status === "in-progress") ?? [];
   const doneTasks = tasks?.filter((task) => task.status === "done") ?? [];
