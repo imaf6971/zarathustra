@@ -23,12 +23,14 @@ import {
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { CreateTaskDialog } from "./create-task-dialog";
+import { TaskDetailDialog } from "./task-detail-dialog";
 
 type TaskStatus = "backlog" | "in-progress" | "done";
 
 interface Task {
-  _id: string;
+  _id: Id<"tasks">;
   title: string;
   description?: string;
   status: TaskStatus;
@@ -40,9 +42,16 @@ interface KanbanColumnProps {
   title: string;
   tasks: Task[];
   badgeColor: string;
+  onTaskClick: (task: Task) => void;
 }
 
-function KanbanColumn({ id, title, tasks, badgeColor }: KanbanColumnProps) {
+function KanbanColumn({
+  id,
+  title,
+  tasks,
+  badgeColor,
+  onTaskClick,
+}: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id,
   });
@@ -74,7 +83,7 @@ function KanbanColumn({ id, title, tasks, badgeColor }: KanbanColumnProps) {
       </div>
       <div className="flex-1 space-y-2 overflow-y-auto p-4 min-h-[200px]">
         {tasks.map((task) => (
-          <TaskCard key={task._id} task={task} />
+          <TaskCard key={task._id} task={task} onTaskClick={onTaskClick} />
         ))}
         {tasks.length === 0 && (
           <div className="text-center text-muted-foreground text-sm py-8">
@@ -88,9 +97,10 @@ function KanbanColumn({ id, title, tasks, badgeColor }: KanbanColumnProps) {
 
 interface TaskCardProps {
   task: Task;
+  onTaskClick: (task: Task) => void;
 }
 
-function TaskCard({ task }: TaskCardProps) {
+function TaskCard({ task, onTaskClick }: TaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: task._id,
@@ -104,28 +114,39 @@ function TaskCard({ task }: TaskCardProps) {
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    // Only open dialog if not currently dragging
+    // The activation constraint (distance: 8) means clicks without movement won't trigger drags
+    if (!isDragging) {
+      e.stopPropagation();
+      onTaskClick(task);
+    }
+  };
+
   return (
     <Card
       {...attributes}
-      {...listeners}
       ref={setNodeRef}
       style={style}
       className={cn(
-        "cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow",
-        isDragging && "shadow-lg"
+        "cursor-pointer hover:shadow-md transition-shadow",
+        isDragging && "shadow-lg cursor-grabbing"
       )}
+      onClick={handleClick}
     >
-      <CardHeader>
-        <CardTitle className="text-base font-mono">{task.title}</CardTitle>
-        {task.description && (
-          <CardDescription>{task.description}</CardDescription>
-        )}
-        {task.completionDate && (
-          <CardDescription className="text-xs mt-2">
-            Due: {format(new Date(task.completionDate), "PPP")}
-          </CardDescription>
-        )}
-      </CardHeader>
+      <div {...listeners} className="cursor-grab active:cursor-grabbing">
+        <CardHeader>
+          <CardTitle className="text-base font-mono">{task.title}</CardTitle>
+          {task.description && (
+            <CardDescription>{task.description}</CardDescription>
+          )}
+          {task.completionDate && (
+            <CardDescription className="text-xs mt-2">
+              Due: {format(new Date(task.completionDate), "PPP")}
+            </CardDescription>
+          )}
+        </CardHeader>
+      </div>
     </Card>
   );
 }
@@ -150,7 +171,12 @@ function DraggableTaskOverlay({ task }: { task: Task }) {
 
 export function Kanban() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<Id<"tasks"> | null>(
+    null
+  );
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+
+  const isTaskDetailOpen = selectedTaskId !== null;
 
   const activeContext = useQuery(api.contexts.getActiveContext);
   const updateTaskStatus = useMutation(
@@ -235,6 +261,10 @@ export function Kanban() {
     }
   };
 
+  const handleTaskClick = (task: Task) => {
+    setSelectedTaskId(task._id);
+  };
+
   if (!activeContext) {
     return (
       <AppLayout
@@ -284,24 +314,40 @@ export function Kanban() {
             title="Backlog"
             tasks={backlogTasks}
             badgeColor="text-chart-1"
+            onTaskClick={handleTaskClick}
           />
           <KanbanColumn
             id="in-progress"
             title="In Progress"
             tasks={inProgressTasks}
             badgeColor="text-chart-3"
+            onTaskClick={handleTaskClick}
           />
           <KanbanColumn
             id="done"
             title="Done"
             tasks={doneTasks}
             badgeColor="text-chart-4"
+            onTaskClick={handleTaskClick}
           />
         </div>
         <DragOverlay>
           {activeTask ? <DraggableTaskOverlay task={activeTask} /> : null}
         </DragOverlay>
       </DndContext>
+      <TaskDetailDialog
+        open={isTaskDetailOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedTaskId(null);
+          }
+        }}
+        task={
+          selectedTaskId
+            ? (tasks?.find((t) => t._id === selectedTaskId) ?? null)
+            : null
+        }
+      />
     </AppLayout>
   );
 }

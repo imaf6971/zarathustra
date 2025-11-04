@@ -25,6 +25,14 @@ const schema = defineSchema({
     .index("by_status", ["status"])
     .index("by_context", ["contextId"])
     .index("by_user_context", ["userId", "contextId"]),
+  taskNotes: defineTable({
+    taskId: v.id("tasks"),
+    userId: v.id("users"),
+    content: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_task", ["taskId"])
+    .index("by_user", ["userId"]),
   userPreferences: defineTable({
     userId: v.id("users"),
     selectedContextId: v.optional(v.id("contexts")),

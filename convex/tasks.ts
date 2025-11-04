@@ -127,3 +127,82 @@ export const updateStatus = mutation({
     return args.taskId;
   },
 });
+
+export const update = mutation({
+  args: {
+    taskId: v.id("tasks"),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    completionDate: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new ConvexError("Unauthorized");
+    }
+
+    const task = await ctx.db.get(args.taskId);
+    if (!task) {
+      throw new ConvexError("Task not found");
+    }
+
+    if (task.userId !== userId) {
+      throw new ConvexError("Unauthorized");
+    }
+
+    const updateData: {
+      title?: string;
+      description?: string;
+      completionDate?: number;
+    } = {};
+
+    if (args.title !== undefined) {
+      updateData.title = args.title;
+    }
+    if (args.description !== undefined) {
+      updateData.description = args.description;
+    }
+    if (args.completionDate !== undefined) {
+      updateData.completionDate = args.completionDate;
+    }
+
+    await ctx.db.patch(args.taskId, updateData);
+
+    return args.taskId;
+  },
+});
+
+export const remove = mutation({
+  args: {
+    taskId: v.id("tasks"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new ConvexError("Unauthorized");
+    }
+
+    const task = await ctx.db.get(args.taskId);
+    if (!task) {
+      throw new ConvexError("Task not found");
+    }
+
+    if (task.userId !== userId) {
+      throw new ConvexError("Unauthorized");
+    }
+
+    // Delete all notes associated with this task
+    const notes = await ctx.db
+      .query("taskNotes")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+
+    for (const note of notes) {
+      await ctx.db.delete(note._id);
+    }
+
+    // Delete the task
+    await ctx.db.delete(args.taskId);
+    return args.taskId;
+  },
+});
