@@ -122,9 +122,127 @@ export const remove = mutation({
       );
     }
 
+    // Check if this was the selected context and auto-switch if needed
+    const preferences = await ctx.db
+      .query("userPreferences")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    const wasSelected = preferences?.selectedContextId === args.contextId;
+
+    // Delete the context
     await ctx.db.delete(args.contextId);
 
+    // If this was the selected context, switch to another one
+    if (wasSelected) {
+      const remainingContexts = await ctx.db
+        .query("contexts")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .order("desc")
+        .collect();
+
+      const newSelectedContextId =
+        remainingContexts.length > 0 ? remainingContexts[0]._id : undefined;
+
+      if (preferences) {
+        await ctx.db.patch(preferences._id, {
+          selectedContextId: newSelectedContextId,
+        });
+      } else if (newSelectedContextId) {
+        // Create preferences if they don't exist and there's a context to select
+        await ctx.db.insert("userPreferences", {
+          userId,
+          selectedContextId: newSelectedContextId,
+        });
+      }
+    }
+
     return args.contextId;
+  },
+});
+
+export const getActiveContext = query({
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      return null;
+    }
+
+    // Get all contexts for the user
+    const contexts = await ctx.db
+      .query("contexts")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")
+      .collect();
+
+    if (contexts.length === 0) {
+      return null;
+    }
+
+    // Get selected context preference
+    const preferences = await ctx.db
+      .query("userPreferences")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    const selectedContextId = preferences?.selectedContextId;
+
+    // If there's a selected context and it exists, return it
+    if (selectedContextId) {
+      const selectedContext = contexts.find((c) => c._id === selectedContextId);
+      if (selectedContext) {
+        return selectedContext;
+      }
+    }
+
+    // Otherwise, return the first context as fallback
+    return contexts[0];
+  },
+});
+
+export const setSelectedContext = mutation({
+  args: {
+    contextId: v.optional(v.id("contexts")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new ConvexError("Unauthorized");
+    }
+
+    // If contextId is provided, verify it belongs to the user
+    if (args.contextId !== undefined && args.contextId !== null) {
+      const context = await ctx.db.get(args.contextId);
+      if (!context) {
+        throw new ConvexError("Context not found");
+      }
+      if (context.userId !== userId) {
+        throw new ConvexError("Unauthorized");
+      }
+    }
+
+    // Get or create user preferences
+    let preferences = await ctx.db
+      .query("userPreferences")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+
+
+    if (preferences) {
+      // Update existing preferences
+      await ctx.db.patch(preferences._id, {
+        selectedContextId: args.contextId,
+      });
+    } else {
+      // Create new preferences
+      await ctx.db.insert("userPreferences", {
+        userId,
+        selectedContextId: args.contextId,
+      });
+    }
+
+    return args.contextId ?? null;
   },
 });
 

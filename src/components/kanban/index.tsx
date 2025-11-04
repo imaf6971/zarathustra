@@ -41,7 +41,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { useSelectedContext } from "@/components/context-provider";
 
 type TaskStatus = "backlog" | "in-progress" | "done";
 
@@ -180,15 +179,13 @@ export function Kanban() {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
-  const { selectedContextId } = useSelectedContext();
+  const activeContext = useQuery(api.contexts.getActiveContext);
   const createTask = useMutation(api.tasks.create);
   const updateTaskStatus = useMutation(api.tasks.updateStatus);
   const tasks = useQuery(
     api.tasks.list,
-    selectedContextId ? { contextId: selectedContextId } : "skip"
+    activeContext?._id ? { contextId: activeContext._id } : "skip"
   );
-  const contexts = useQuery(api.contexts.list);
-  const selectedContext = contexts?.find((c) => c._id === selectedContextId);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -243,7 +240,7 @@ export function Kanban() {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!selectedContextId) {
+    if (!activeContext?._id) {
       console.error("No context selected");
       return;
     }
@@ -253,7 +250,7 @@ export function Kanban() {
         description: description || undefined,
         status: "backlog",
         completionDate: completionDate ? completionDate.getTime() : undefined,
-        contextId: selectedContextId,
+        contextId: activeContext._id,
       });
       setTitle("");
       setDescription("");
@@ -265,7 +262,7 @@ export function Kanban() {
     }
   };
 
-  if (!selectedContextId) {
+  if (!activeContext) {
     return (
       <AppLayout
         breadcrumbs={[{ label: "Work", href: "#" }, { label: "Kanban" }]}
@@ -282,8 +279,8 @@ export function Kanban() {
     );
   }
 
-  const breadcrumbs = selectedContext
-    ? [{ label: selectedContext.name, href: "#" }, { label: "Kanban" }]
+  const breadcrumbs = activeContext
+    ? [{ label: activeContext.name, href: "#" }, { label: "Kanban" }]
     : [{ label: "Work", href: "#" }, { label: "Kanban" }];
 
   return (

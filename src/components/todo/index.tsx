@@ -1,15 +1,12 @@
 import { AppLayout } from "@/components/app-layout";
-import { useSelectedContext } from "@/components/context-provider";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
 export function Todo() {
-  const { selectedContextId } = useSelectedContext();
-  const contexts = useQuery(api.contexts.list);
-  const selectedContext = contexts?.find((c) => c._id === selectedContextId);
+  const activeContext = useQuery(api.contexts.getActiveContext);
 
-  const breadcrumbs = selectedContext
-    ? [{ label: selectedContext.name, href: "#" }, { label: "Todo" }]
+  const breadcrumbs = activeContext
+    ? [{ label: activeContext.name, href: "#" }, { label: "Todo" }]
     : [{ label: "Work", href: "#" }, { label: "Todo" }];
 
   return (

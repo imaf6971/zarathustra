@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState } from "react";
 import {
   ChevronsUpDown,
   Plus,
@@ -8,10 +8,9 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
-import { useSelectedContext } from "./context-provider";
 import { CreateContextDialog } from "./contexts/create-context-dialog";
 import { EditContextDialog } from "./contexts/edit-context-dialog";
 import { DeleteContextDialog } from "./contexts/delete-context-dialog";
@@ -37,8 +36,13 @@ import { cn } from "@/lib/utils";
 
 export function ContextSwitcher() {
   const { isMobile } = useSidebar();
-  const { selectedContextId, setSelectedContextId } = useSelectedContext();
+  const activeContext = useQuery(api.contexts.getActiveContext);
+  const setSelectedContext = useMutation(api.contexts.setSelectedContext);
   const contexts = useQuery(api.contexts.list);
+
+  const setSelectedContextId = (contextId: Id<"contexts"> | null) => {
+    setSelectedContext({ contextId: contextId ?? undefined });
+  };
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [actionContext, setActionContext] = useState<{
     type: "edit" | "delete";
@@ -48,24 +52,6 @@ export function ContextSwitcher() {
   // Derive boolean states from context objects
   const isEditDialogOpen = actionContext?.type === "edit";
   const isDeleteDialogOpen = actionContext?.type === "delete";
-
-  // Get active context - prefer selected, then first context, or null
-  const activeContext = useMemo(() => {
-    if (!contexts) return null;
-    if (selectedContextId) {
-      const found = contexts.find((c) => c._id === selectedContextId);
-      if (found) return found;
-    }
-    return contexts[0] || null;
-  }, [contexts, selectedContextId]);
-
-  // Initialize selected context on first load
-  useEffect(() => {
-    if (contexts && contexts.length > 0 && !selectedContextId) {
-      const firstContextId = contexts[0]._id;
-      setSelectedContextId(firstContextId);
-    }
-  }, [contexts, selectedContextId, setSelectedContextId]);
 
   const handleContextSelect = (contextId: Id<"contexts">) => {
     setSelectedContextId(contextId);
@@ -88,21 +74,7 @@ export function ContextSwitcher() {
   };
 
   const handleDeleteSuccess = () => {
-    // If we deleted the selected context, switch to the first available context
-    if (
-      contexts &&
-      actionContext?.type === "delete" &&
-      selectedContextId === actionContext.context._id
-    ) {
-      const remainingContexts = contexts.filter(
-        (c) => c._id !== actionContext.context._id
-      );
-      if (remainingContexts.length > 0) {
-        setSelectedContextId(remainingContexts[0]._id);
-      } else {
-        setSelectedContextId(null);
-      }
-    }
+    // Backend automatically handles switching to another context if needed
     setActionContext(null);
   };
 
@@ -111,7 +83,7 @@ export function ContextSwitcher() {
     return GalleryVerticalEnd;
   };
 
-  if (!contexts) {
+  if (!contexts || activeContext === undefined) {
     return (
       <SidebarMenu>
         <SidebarMenuItem>
@@ -191,7 +163,8 @@ export function ContextSwitcher() {
             </DropdownMenuLabel>
             {contexts.map((context) => {
               const ContextIcon = getContextIcon(context.icon);
-              const isSelected = context._id === activeContext._id;
+              const isSelected =
+                activeContext && context._id === activeContext._id;
               return (
                 <DropdownMenuSub key={context._id}>
                   <DropdownMenuSubTrigger

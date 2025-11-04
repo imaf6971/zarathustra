@@ -25,6 +25,11 @@ const schema = defineSchema({
     .index("by_status", ["status"])
     .index("by_context", ["contextId"])
     .index("by_user_context", ["userId", "contextId"]),
+  userPreferences: defineTable({
+    userId: v.id("users"),
+    selectedContextId: v.optional(v.id("contexts")),
+  })
+    .index("by_user", ["userId"]),
 });
 
 export default schema;

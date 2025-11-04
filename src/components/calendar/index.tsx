@@ -1,15 +1,12 @@
 import { AppLayout } from "@/components/app-layout";
-import { useSelectedContext } from "@/components/context-provider";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
 export function Calendar() {
-  const { selectedContextId } = useSelectedContext();
-  const contexts = useQuery(api.contexts.list);
-  const selectedContext = contexts?.find((c) => c._id === selectedContextId);
+  const activeContext = useQuery(api.contexts.getActiveContext);
 
-  const breadcrumbs = selectedContext
-    ? [{ label: selectedContext.name, href: "#" }, { label: "Calendar" }]
+  const breadcrumbs = activeContext
+    ? [{ label: activeContext.name, href: "#" }, { label: "Calendar" }]
     : [{ label: "Work", href: "#" }, { label: "Calendar" }];
 
   return (

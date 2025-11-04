@@ -12,7 +12,6 @@ import { Kanban } from "@/components/kanban/index.tsx";
 import { Todo } from "@/components/todo/index.tsx";
 import { Calendar } from "@/components/calendar/index.tsx";
 import { ThemeProvider } from "@/components/theme-provider.tsx";
-import { ContextProvider } from "@/components/context-provider.tsx";
 import { Redirect, Route } from "wouter";
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
@@ -28,18 +27,16 @@ createRoot(document.getElementById("root")!).render(
           </Route>
         </Unauthenticated>
         <Authenticated>
-          <ContextProvider>
-            <Redirect to="/kanban" />
-            <Route path="/kanban">
-              <Kanban />
-            </Route>
-            <Route path="/todo">
-              <Todo />
-            </Route>
-            <Route path="/calendar">
-              <Calendar />
-            </Route>
-          </ContextProvider>
+          <Redirect to="/kanban" />
+          <Route path="/kanban">
+            <Kanban />
+          </Route>
+          <Route path="/todo">
+            <Todo />
+          </Route>
+          <Route path="/calendar">
+            <Calendar />
+          </Route>
         </Authenticated>
       </ConvexAuthProvider>
     </ThemeProvider>
