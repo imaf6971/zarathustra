@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { PlusCircle, Calendar as CalendarIcon } from "lucide-react";
+import { useState } from "react";
+import { PlusCircle } from "lucide-react";
 import { format } from "date-fns";
 import {
   DndContext,
@@ -15,32 +15,15 @@ import { CSS } from "@dnd-kit/utilities";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
   Card,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { CreateTaskDialog } from "./create-task-dialog";
 
 type TaskStatus = "backlog" | "in-progress" | "done";
 
@@ -133,19 +116,15 @@ function TaskCard({ task }: TaskCardProps) {
       )}
     >
       <CardHeader>
-        <div className="flex items-start gap-2">
-          <div className="flex-1">
-            <CardTitle className="text-base font-mono">{task.title}</CardTitle>
-            {task.description && (
-              <CardDescription>{task.description}</CardDescription>
-            )}
-            {task.completionDate && (
-              <CardDescription className="text-xs mt-2">
-                Due: {format(new Date(task.completionDate), "PPP")}
-              </CardDescription>
-            )}
-          </div>
-        </div>
+        <CardTitle className="text-base font-mono">{task.title}</CardTitle>
+        {task.description && (
+          <CardDescription>{task.description}</CardDescription>
+        )}
+        {task.completionDate && (
+          <CardDescription className="text-xs mt-2">
+            Due: {format(new Date(task.completionDate), "PPP")}
+          </CardDescription>
+        )}
       </CardHeader>
     </Card>
   );
@@ -171,17 +150,35 @@ function DraggableTaskOverlay({ task }: { task: Task }) {
 
 export function Kanban() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [completionDate, setCompletionDate] = useState<Date | undefined>(
-    undefined
-  );
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
   const activeContext = useQuery(api.contexts.getActiveContext);
-  const createTask = useMutation(api.tasks.create);
-  const updateTaskStatus = useMutation(api.tasks.updateStatus);
+  const updateTaskStatus = useMutation(
+    api.tasks.updateStatus
+  ).withOptimisticUpdate((localStore, args) => {
+    // Get the active context from the store
+    const currentContext = localStore.getQuery(api.contexts.getActiveContext);
+    if (!currentContext?._id) return;
+
+    // Get current tasks list
+    const currentTasks = localStore.getQuery(api.tasks.list, {
+      contextId: currentContext._id,
+    });
+
+    if (currentTasks !== undefined) {
+      // Update the task's status optimistically
+      const updatedTasks = currentTasks.map((task) =>
+        task._id === args.taskId ? { ...task, status: args.status } : task
+      );
+
+      // Update the query with the optimistic data
+      localStore.setQuery(
+        api.tasks.list,
+        { contextId: currentContext._id },
+        updatedTasks
+      );
+    }
+  });
   const tasks = useQuery(
     api.tasks.list,
     activeContext?._id ? { contextId: activeContext._id } : "skip"
@@ -238,30 +235,6 @@ export function Kanban() {
     }
   };
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!activeContext?._id) {
-      console.error("No context selected");
-      return;
-    }
-    try {
-      await createTask({
-        title,
-        description: description || undefined,
-        status: "backlog",
-        completionDate: completionDate ? completionDate.getTime() : undefined,
-        contextId: activeContext._id,
-      });
-      setTitle("");
-      setDescription("");
-      setCompletionDate(undefined);
-      setIsPopoverOpen(false);
-      setIsDialogOpen(false);
-    } catch (error) {
-      console.error("Error creating task:", error);
-    }
-  };
-
   if (!activeContext) {
     return (
       <AppLayout
@@ -287,106 +260,17 @@ export function Kanban() {
     <AppLayout
       breadcrumbs={breadcrumbs}
       headerActions={
-        <Dialog
-          open={isDialogOpen}
-          onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) {
-              setIsPopoverOpen(false);
-            }
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="size-4" />
-              Add Task
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <form onSubmit={handleSubmit}>
-              <DialogHeader>
-                <DialogTitle>Add New Task</DialogTitle>
-                <DialogDescription>
-                  Create a new task for your kanban board. Fill in the details
-                  below.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="title">Title</Label>
-                  <Input
-                    id="title"
-                    placeholder="Enter task title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Enter task description"
-                    rows={4}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="completionDate">
-                    Completion Date (Optional)
-                  </Label>
-                  <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        id="completionDate"
-                        variant={"outline"}
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !completionDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {completionDate ? (
-                          format(completionDate, "PPP")
-                        ) : (
-                          <span>Pick a date</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-auto p-0 pointer-events-auto"
-                      align="start"
-                      side="top"
-                      sideOffset={8}
-                      avoidCollisions={false}
-                    >
-                      <Calendar
-                        mode="single"
-                        selected={completionDate}
-                        onSelect={(date) => {
-                          setCompletionDate(date);
-                          setIsPopoverOpen(false);
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit">Add Task</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <>
+          <Button onClick={() => setIsDialogOpen(true)}>
+            <PlusCircle className="size-4" />
+            Add Task
+          </Button>
+          <CreateTaskDialog
+            open={isDialogOpen}
+            onOpenChange={setIsDialogOpen}
+            contextId={activeContext?._id}
+          />
+        </>
       }
     >
       <DndContext
