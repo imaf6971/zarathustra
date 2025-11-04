@@ -96,16 +96,18 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) {
-      throw new ConvexError("Unauthorized");
+      throw new ConvexError("You don't have permission to delete this context.");
     }
 
     const context = await ctx.db.get(args.contextId);
     if (!context) {
-      throw new ConvexError("Context not found");
+      throw new ConvexError(
+        "This context could not be found. It may have already been deleted."
+      );
     }
 
     if (context.userId !== userId) {
-      throw new ConvexError("Unauthorized");
+      throw new ConvexError("You don't have permission to delete this context.");
     }
 
     // Check if there are tasks using this context
@@ -116,7 +118,7 @@ export const remove = mutation({
 
     if (tasks) {
       throw new ConvexError(
-        "Cannot delete context with existing tasks. Please move or delete tasks first."
+        "This context contains tasks. Please move or delete all tasks before deleting the context."
       );
     }
 
