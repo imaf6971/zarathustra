@@ -133,7 +133,7 @@ export const update = mutation({
     taskId: v.id("tasks"),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
-    completionDate: v.optional(v.number()),
+    completionDate: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -150,21 +150,14 @@ export const update = mutation({
       throw new ConvexError("Unauthorized");
     }
 
-    const updateData: {
-      title?: string;
-      description?: string;
-      completionDate?: number;
-    } = {};
+    const updateData = await ctx.db.get(args.taskId);
+    if (!updateData) {
+      throw new ConvexError("Task not found while updating");
+    }
 
-    if (args.title !== undefined) {
-      updateData.title = args.title;
-    }
-    if (args.description !== undefined) {
-      updateData.description = args.description;
-    }
-    if (args.completionDate !== undefined) {
-      updateData.completionDate = args.completionDate;
-    }
+    updateData.title = args.title ?? updateData.title;
+    updateData.description = args.description ?? updateData.description;
+    updateData.completionDate = args.completionDate ?? undefined;
 
     await ctx.db.patch(args.taskId, updateData);
 

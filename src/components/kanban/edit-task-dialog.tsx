@@ -77,7 +77,7 @@ export function EditTaskDialog({
         taskId: task._id,
         title: title.trim(),
         description: description.trim() || undefined,
-        completionDate: completionDate ? completionDate.getTime() : undefined,
+        completionDate: completionDate ? completionDate.getTime() : null,
       });
       setIsPopoverOpen(false);
       onOpenChange(false);
