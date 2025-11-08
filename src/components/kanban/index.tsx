@@ -73,7 +73,7 @@ function KanbanColumn({
             ref={provided.innerRef}
             {...provided.droppableProps}
             className={cn(
-              "flex-1 flex flex-col gap-2 overflow-y-auto p-4 min-h-[200px] relative",
+              "flex-1 overflow-y-auto p-4 min-h-[200px] max-h-[calc(100dvh-113px)] relative",
               snapshot.isDraggingOver && "bg-muted/50"
             )}
           >
@@ -127,7 +127,7 @@ function TaskCard({ task, index, onTaskClick }: TaskCardProps) {
               opacity: snapshot.isDragging ? 0.5 : 1,
             }}
             className={cn(
-              "cursor-pointer hover:shadow-md transition-shadow",
+              "mb-2 cursor-pointer hover:shadow-md transition-shadow",
               snapshot.isDragging && "shadow-lg cursor-grabbing"
             )}
             onClick={handleClick}
