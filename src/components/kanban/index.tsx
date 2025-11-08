@@ -1,17 +1,8 @@
 import { useState } from "react";
 import { PlusCircle } from "lucide-react";
 import { format } from "date-fns";
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  useDroppable,
-  useDraggable,
-} from "@dnd-kit/core";
-import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import type { DropResult } from "@hello-pangea/dnd";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +26,7 @@ interface Task {
   description?: string;
   status: TaskStatus;
   completionDate?: number;
+  order: number;
 }
 
 interface KanbanColumnProps {
@@ -52,16 +44,10 @@ function KanbanColumn({
   badgeColor,
   onTaskClick,
 }: KanbanColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({
-    id,
-  });
-
   return (
     <div
-      ref={setNodeRef}
       className={cn(
-        "flex flex-col flex-1 bg-card rounded-lg shadow-sm overflow-hidden transition-colors",
-        isOver && "bg-muted/50 ring-2 ring-primary ring-offset-2"
+        "flex flex-col flex-1 bg-card rounded-lg shadow-sm overflow-hidden transition-colors"
       )}
     >
       <div className="px-4 py-3 border-b">
@@ -81,91 +67,93 @@ function KanbanColumn({
           </span>
         </div>
       </div>
-      <div className="flex-1 space-y-2 overflow-y-auto p-4 min-h-[200px]">
-        {tasks.map((task) => (
-          <TaskCard key={task._id} task={task} onTaskClick={onTaskClick} />
-        ))}
-        {tasks.length === 0 && (
-          <div className="text-center text-muted-foreground text-sm py-8">
-            Drop tasks here
+      <Droppable droppableId={id}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            className={cn(
+              "flex-1 flex flex-col gap-2 overflow-y-auto p-4 min-h-[200px] relative",
+              snapshot.isDraggingOver && "bg-muted/50"
+            )}
+          >
+            {tasks.map((task, index) => (
+              <TaskCard
+                key={task._id}
+                task={task}
+                index={index}
+                onTaskClick={onTaskClick}
+              />
+            ))}
+            {provided.placeholder}
+            {tasks.length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="text-center text-muted-foreground text-sm">
+                  Drop tasks here
+                </div>
+              </div>
+            )}
           </div>
         )}
-      </div>
+      </Droppable>
     </div>
   );
 }
 
 interface TaskCardProps {
   task: Task;
+  index: number;
   onTaskClick: (task: Task) => void;
 }
 
-function TaskCard({ task, onTaskClick }: TaskCardProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: task._id,
-      data: {
-        task,
-      },
-    });
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  const handleClick = (e: React.MouseEvent) => {
-    // Only open dialog if not currently dragging
-    // The activation constraint (distance: 8) means clicks without movement won't trigger drags
-    if (!isDragging) {
-      e.stopPropagation();
-      onTaskClick(task);
-    }
-  };
-
+function TaskCard({ task, index, onTaskClick }: TaskCardProps) {
   return (
-    <Card
-      {...attributes}
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        "cursor-pointer hover:shadow-md transition-shadow",
-        isDragging && "shadow-lg cursor-grabbing"
-      )}
-      onClick={handleClick}
-    >
-      <div {...listeners} className="cursor-grab active:cursor-grabbing">
-        <CardHeader>
-          <CardTitle className="text-base font-mono">{task.title}</CardTitle>
-          {task.description && (
-            <CardDescription>{task.description}</CardDescription>
-          )}
-          {task.completionDate && (
-            <CardDescription className="text-xs mt-2">
-              Due: {format(new Date(task.completionDate), "PPP")}
-            </CardDescription>
-          )}
-        </CardHeader>
-      </div>
-    </Card>
-  );
-}
+    <Draggable draggableId={task._id} index={index}>
+      {(provided, snapshot) => {
+        const handleClick = (e: React.MouseEvent) => {
+          // Only open dialog if not currently dragging
+          if (!snapshot.isDragging) {
+            e.stopPropagation();
+            onTaskClick(task);
+          }
+        };
 
-function DraggableTaskOverlay({ task }: { task: Task }) {
-  return (
-    <Card className="shadow-2xl opacity-90">
-      <CardHeader>
-        <CardTitle className="text-base font-mono">{task.title}</CardTitle>
-        {task.description && (
-          <CardDescription>{task.description}</CardDescription>
-        )}
-        {task.completionDate && (
-          <CardDescription className="text-xs mt-2">
-            Due: {format(new Date(task.completionDate), "PPP")}
-          </CardDescription>
-        )}
-      </CardHeader>
-    </Card>
+        return (
+          <Card
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            style={{
+              ...provided.draggableProps.style,
+              opacity: snapshot.isDragging ? 0.5 : 1,
+            }}
+            className={cn(
+              "cursor-pointer hover:shadow-md transition-shadow",
+              snapshot.isDragging && "shadow-lg cursor-grabbing"
+            )}
+            onClick={handleClick}
+          >
+            <div
+              {...provided.dragHandleProps}
+              className="cursor-grab active:cursor-grabbing"
+            >
+              <CardHeader>
+                <CardTitle className="text-base font-mono">
+                  {task.title}
+                </CardTitle>
+                {task.description && (
+                  <CardDescription>{task.description}</CardDescription>
+                )}
+                {task.completionDate && (
+                  <CardDescription className="text-xs mt-2">
+                    Due: {format(new Date(task.completionDate), "PPP")}
+                  </CardDescription>
+                )}
+              </CardHeader>
+            </div>
+          </Card>
+        );
+      }}
+    </Draggable>
   );
 }
 
@@ -174,7 +162,6 @@ export function Kanban() {
   const [selectedTaskId, setSelectedTaskId] = useState<Id<"tasks"> | null>(
     null
   );
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
 
   const isTaskDetailOpen = selectedTaskId !== null;
 
@@ -192,10 +179,57 @@ export function Kanban() {
     });
 
     if (currentTasks !== undefined) {
-      // Update the task's status optimistically
-      const updatedTasks = currentTasks.map((task) =>
-        task._id === args.taskId ? { ...task, status: args.status } : task
-      );
+      const taskToMove = currentTasks.find((t) => t._id === args.taskId);
+      if (!taskToMove) return;
+
+      // Separate tasks by status (excluding the task being moved)
+      const tasksByStatus: Record<string, typeof currentTasks> = {
+        backlog: currentTasks.filter(
+          (t) => t.status === "backlog" && t._id !== args.taskId
+        ),
+        "in-progress": currentTasks.filter(
+          (t) => t.status === "in-progress" && t._id !== args.taskId
+        ),
+        done: currentTasks.filter(
+          (t) => t.status === "done" && t._id !== args.taskId
+        ),
+      };
+
+      // Insert the moved task at the new position in the destination status
+      const destTasks = [...(tasksByStatus[args.status] || [])];
+      const movedTask = {
+        ...taskToMove,
+        status: args.status,
+        order: args.newIndex,
+      };
+      destTasks.splice(args.newIndex, 0, movedTask);
+
+      // Reassign order to all tasks in the destination column
+      const updatedDestTasks = destTasks.map((task, idx) => ({
+        ...task,
+        order: idx,
+      }));
+
+      // Update order for tasks in the source column if different from destination
+      let updatedSourceTasks: typeof currentTasks = [];
+      if (taskToMove.status !== args.status) {
+        const sourceTasks = tasksByStatus[taskToMove.status] || [];
+        updatedSourceTasks = sourceTasks.map((task, idx) => ({
+          ...task,
+          order: idx,
+        }));
+        tasksByStatus[taskToMove.status] = updatedSourceTasks;
+      }
+
+      // Replace destination tasks with updated ones
+      tasksByStatus[args.status] = updatedDestTasks;
+
+      // Combine all tasks
+      const updatedTasks = [
+        ...tasksByStatus.backlog,
+        ...tasksByStatus["in-progress"],
+        ...tasksByStatus.done,
+      ];
 
       // Update the query with the optimistic data
       localStore.setQuery(
@@ -210,44 +244,33 @@ export function Kanban() {
     activeContext?._id ? { contextId: activeContext._id } : "skip"
   );
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
-  );
-
   const backlogTasks = tasks?.filter((task) => task.status === "backlog") ?? [];
   const inProgressTasks =
     tasks?.filter((task) => task.status === "in-progress") ?? [];
   const doneTasks = tasks?.filter((task) => task.status === "done") ?? [];
 
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    const task = tasks?.find((t) => t._id === active.id);
-    if (task) {
-      setActiveTask(task as Task);
-    }
-  };
+  const handleDragEnd = async (result: DropResult) => {
+    const { source, destination, draggableId } = result;
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveTask(null);
+    if (!destination) return;
 
-    if (!over) return;
-
-    const taskId = active.id as string;
-    const newStatus = over.id as TaskStatus;
+    const taskId = draggableId;
+    const newStatus = destination.droppableId as TaskStatus;
+    const sourceStatus = source.droppableId as TaskStatus;
 
     // Validate that the drop target is a valid column
     if (!["backlog", "in-progress", "done"].includes(newStatus)) {
       return;
     }
 
-    // Check if the task is being moved to a different column
+    // Check if anything actually changed
     const currentTask = tasks?.find((t) => t._id === taskId);
-    if (!currentTask || currentTask.status === newStatus) {
+    if (!currentTask) {
+      return;
+    }
+
+    // If same column and same position, do nothing
+    if (sourceStatus === newStatus && source.index === destination.index) {
       return;
     }
 
@@ -255,6 +278,7 @@ export function Kanban() {
       await updateTaskStatus({
         taskId: taskId as any,
         status: newStatus,
+        newIndex: destination.index,
       });
     } catch (error) {
       console.error("Error updating task status:", error);
@@ -303,11 +327,7 @@ export function Kanban() {
         </>
       }
     >
-      <DndContext
-        sensors={sensors}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
+      <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4 h-full">
           <KanbanColumn
             id="backlog"
@@ -331,10 +351,7 @@ export function Kanban() {
             onTaskClick={handleTaskClick}
           />
         </div>
-        <DragOverlay>
-          {activeTask ? <DraggableTaskOverlay task={activeTask} /> : null}
-        </DragOverlay>
-      </DndContext>
+      </DragDropContext>
       <TaskDetailDialog
         open={isTaskDetailOpen}
         onOpenChange={(open) => {

@@ -20,11 +20,13 @@ const schema = defineSchema({
     contextId: v.id("contexts"),
     createdAt: v.number(),
     completionDate: v.optional(v.number()),
+    order: v.number(),
   })
     .index("by_user", ["userId"])
     .index("by_status", ["status"])
     .index("by_context", ["contextId"])
-    .index("by_user_context", ["userId", "contextId"]),
+    .index("by_user_context", ["userId", "contextId"])
+    .index("by_user_context_status", ["userId", "contextId", "status"]),
   taskNotes: defineTable({
     taskId: v.id("tasks"),
     userId: v.id("users"),

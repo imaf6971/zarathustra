@@ -26,14 +26,29 @@ export const create = mutation({
       throw new ConvexError("Unauthorized");
     }
 
+    const status = args.status ?? "backlog";
+    
+    // Get the highest order for this status to place new task at the end
+    const tasksInStatus = await ctx.db
+      .query("tasks")
+      .withIndex("by_user_context_status", (q) =>
+        q.eq("userId", userId).eq("contextId", args.contextId).eq("status", status)
+      )
+      .collect();
+    
+    const maxOrder = tasksInStatus.length > 0
+      ? Math.max(...tasksInStatus.map(t => t.order))
+      : -1;
+
     const taskId = await ctx.db.insert("tasks", {
       title: args.title,
       description: args.description,
-      status: args.status ?? "backlog",
+      status,
       userId,
       contextId: args.contextId,
       createdAt: Date.now(),
       completionDate: args.completionDate,
+      order: maxOrder + 1,
     });
 
     return taskId;
@@ -67,7 +82,8 @@ export const list = query({
         )
         .collect();
 
-      return tasks;
+      // Sort by order within each status
+      return tasks.sort((a, b) => a.order - b.order);
     }
 
     // If no contextId provided, return all tasks for user
@@ -76,7 +92,7 @@ export const list = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    return tasks;
+    return tasks.sort((a, b) => a.order - b.order);
   },
 });
 
@@ -104,6 +120,7 @@ export const updateStatus = mutation({
   args: {
     taskId: v.id("tasks"),
     status: v.union(v.literal("backlog"), v.literal("in-progress"), v.literal("done")),
+    newIndex: v.number(),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -120,9 +137,55 @@ export const updateStatus = mutation({
       throw new ConvexError("Unauthorized");
     }
 
-    await ctx.db.patch(args.taskId, {
-      status: args.status,
-    });
+    // Get all tasks in the destination status
+    const tasksInDestStatus = await ctx.db
+      .query("tasks")
+      .withIndex("by_user_context_status", (q) =>
+        q.eq("userId", userId).eq("contextId", task.contextId).eq("status", args.status)
+      )
+      .collect();
+
+    // Sort by order
+    const sortedTasks = tasksInDestStatus.sort((a, b) => a.order - b.order);
+
+    // If moving to a different column, remove from old column first
+    if (task.status !== args.status) {
+      // Get tasks in source status
+      const tasksInSourceStatus = await ctx.db
+        .query("tasks")
+        .withIndex("by_user_context_status", (q) =>
+          q.eq("userId", userId).eq("contextId", task.contextId).eq("status", task.status)
+        )
+        .collect();
+
+      // Reorder source column
+      const sortedSourceTasks = tasksInSourceStatus
+        .filter(t => t._id !== args.taskId)
+        .sort((a, b) => a.order - b.order);
+
+      for (let i = 0; i < sortedSourceTasks.length; i++) {
+        if (sortedSourceTasks[i].order !== i) {
+          await ctx.db.patch(sortedSourceTasks[i]._id, { order: i });
+        }
+      }
+    }
+
+    // Calculate new order and update destination column
+    const updatedDestTasks = sortedTasks.filter(t => t._id !== args.taskId);
+    updatedDestTasks.splice(args.newIndex, 0, { ...task, status: args.status });
+
+    // Update orders for all tasks in destination column
+    for (let i = 0; i < updatedDestTasks.length; i++) {
+      const t = updatedDestTasks[i];
+      if (t._id === args.taskId) {
+        await ctx.db.patch(args.taskId, {
+          status: args.status,
+          order: i,
+        });
+      } else if (t.order !== i) {
+        await ctx.db.patch(t._id, { order: i });
+      }
+    }
 
     return args.taskId;
   },
