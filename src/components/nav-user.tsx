@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { ProfileSettingsDialog } from "@/components/profile/profile-settings-dialog";
+import { LogoutDialog } from "@/components/nav-user/logout-dialog";
 
 function usernameToInitials(name: string) {
   return name
@@ -38,6 +39,7 @@ export function NavUser({
   const { isMobile } = useSidebar();
   const { signOut } = useAuthActions();
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
 
   return (
     <>
@@ -91,7 +93,7 @@ export function NavUser({
 
               <DropdownMenuSeparator />
 
-              <DropdownMenuItem onClick={signOut}>
+              <DropdownMenuItem onClick={() => setIsLogoutDialogOpen(true)}>
                 <LogOut />
                 Log out
               </DropdownMenuItem>
@@ -103,6 +105,12 @@ export function NavUser({
       <ProfileSettingsDialog 
         open={isProfileSettingsOpen}
         onOpenChange={setIsProfileSettingsOpen}
+      />
+
+      <LogoutDialog
+        open={isLogoutDialogOpen}
+        onOpenChange={setIsLogoutDialogOpen}
+        onConfirm={signOut}
       />
     </>
   );

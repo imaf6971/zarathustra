@@ -16,7 +16,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useState, type FormEvent } from "react";
 import { Link } from "wouter";
 
-export function App() {
+export function LoginPage() {
   const { signIn } = useAuthActions();
   const [step, setStep] = useState<"signUp" | "signIn">("signIn");
   const [error, setError] = useState<Error | null>(null);

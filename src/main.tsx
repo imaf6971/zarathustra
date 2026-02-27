@@ -7,7 +7,7 @@ import {
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
-import { App } from "./App.tsx";
+import { LoginPage } from "./login-page.tsx";
 import { Kanban } from "@/components/kanban/index.tsx";
 import { Todo } from "@/components/todo/index.tsx";
 import { Calendar } from "@/components/calendar/index.tsx";
@@ -23,7 +23,7 @@ createRoot(document.getElementById("root")!).render(
         <Unauthenticated>
           <Redirect to="/login" />
           <Route path="/login">
-            <App />
+            <LoginPage />
           </Route>
         </Unauthenticated>
         <Authenticated>
