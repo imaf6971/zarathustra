@@ -30,9 +30,11 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar";
+import { useSidebar } from "@/components/ui/use-sidebar";
 import { cn } from "@/lib/utils";
+
+const ContextIcon = GalleryVerticalEnd;
 
 export function ContextSwitcher() {
   const { isMobile } = useSidebar();
@@ -76,11 +78,6 @@ export function ContextSwitcher() {
   const handleDeleteSuccess = () => {
     // Backend automatically handles switching to another context if needed
     setActionContext(null);
-  };
-
-  const getContextIcon = (_icon?: string) => {
-    // For now, use a default icon. Later can map icon strings to actual icons
-    return GalleryVerticalEnd;
   };
 
   if (!contexts || activeContext === undefined) {
@@ -129,8 +126,6 @@ export function ContextSwitcher() {
     );
   }
 
-  const IconComponent = getContextIcon(activeContext.icon);
-
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -141,7 +136,7 @@ export function ContextSwitcher() {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                <IconComponent className="size-4" />
+                <ContextIcon className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">
@@ -162,7 +157,6 @@ export function ContextSwitcher() {
               Contexts
             </DropdownMenuLabel>
             {contexts.map((context) => {
-              const ContextIcon = getContextIcon(context.icon);
               const isSelected =
                 activeContext && context._id === activeContext._id;
               return (

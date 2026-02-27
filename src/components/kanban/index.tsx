@@ -276,7 +276,7 @@ export function Kanban() {
 
     try {
       await updateTaskStatus({
-        taskId: taskId as any,
+        taskId: currentTask._id,
         status: newStatus,
         newIndex: destination.index,
       });

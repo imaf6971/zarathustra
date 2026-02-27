@@ -222,7 +222,7 @@ export const setSelectedContext = mutation({
     }
 
     // Get or create user preferences
-    let preferences = await ctx.db
+    const preferences = await ctx.db
       .query("userPreferences")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .first();

@@ -13,7 +13,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 
 interface BreadcrumbItemType {
   label: string;
